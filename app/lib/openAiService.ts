@@ -1,0 +1,35 @@
+import { MODELS, OPEN_AI_API_URL } from "./openAiService.constants";
+
+export const connectWithOpenAi = async (
+  userMessage: string,
+  systemMessage: string = "You are a helpful assistant."
+) => {
+  const response = await fetch(`${OPEN_AI_API_URL}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: MODELS.GPT_4O_MINI,
+      messages: [
+        {
+          role: "system",
+          content: systemMessage,
+        },
+        {
+          role: "user",
+          content: userMessage,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  return data;
+};
