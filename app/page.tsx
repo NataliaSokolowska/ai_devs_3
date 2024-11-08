@@ -8,6 +8,9 @@ export default function Home() {
         <Link href="/tasks/01">
           <button className={styles.button}>Przejdź do Zadania 1</button>
         </Link>
+        <Link href="/tasks/02">
+          <button className={styles.button}>Przejdź do Zadania 2</button>
+        </Link>
       </main>
 
     </div>
