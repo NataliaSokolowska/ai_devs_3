@@ -14,7 +14,7 @@
     "react-dom": "19.0.0-rc-02c0e824-20241028"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
+    "@biomejs/biome": "^1.8.3",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
