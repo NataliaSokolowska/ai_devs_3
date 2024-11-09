@@ -27,12 +27,25 @@ const FetchData = () => {
   };
 
   return (
-    <div>
-      <button type="button" onClick={fetchData}>
+    <div className="flex flex-col items-center p-4 bg-gray-100 min-h-screen">
+      <button
+        type="button"
+        onClick={fetchData}
+        className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition duration-300mb-4"
+      >
         Fetch Question and Flag
       </button>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      {flag && <p>Flag: {flag}</p>}
+      {error && (
+        <p className="mt-4 text-red-500 font-medium text-center">{error}</p>
+      )}
+      {flag && (
+        <p className="font-bold">
+          Flaga:{" "}
+          <span className="mt-4 text-green-600 font-semibold text-lg text-center">
+            {flag}
+          </span>
+        </p>
+      )}
     </div>
   );
 };

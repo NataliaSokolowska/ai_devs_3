@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
 const FetchData = () => {
   const [flag, setFlag] = useState<string | null>(null);
@@ -9,9 +9,9 @@ const FetchData = () => {
 
   const fetchData = async () => {
     try {
-      const response = await fetch('/api/send-request-01', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/send-request-01", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -31,20 +31,20 @@ const FetchData = () => {
         setError(null);
       }
     } catch (err) {
-      console.error('Error while fetching data:', err);
-      setError('Error while fetching data');
+      console.error("Error while fetching data:", err);
+      setError("Error while fetching data");
     }
   };
 
   const saveAsMarkdown = () => {
     if (!fileContent) return;
 
-    const blob = new Blob([fileContent], { type: 'text/markdown' });
+    const blob = new Blob([fileContent], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
 
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = 'content.md';
+    link.download = "content.md";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -53,16 +53,44 @@ const FetchData = () => {
   };
 
   return (
-    <div>
-      <button onClick={fetchData}>Pobierz Flagę i Zawartość Pliku</button>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      {flag && <p>Flaga: {flag}</p>}
-      {fileContent && <p>Zawartość Pliku: {fileContent}</p>}
+    <div className="flex flex-col items-start p-4 bg-gray-100 min-h-screen">
+      <button
+        type="button"
+        onClick={fetchData}
+        className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition duration-300 mb-4"
+      >
+        Pobierz Flagę i Zawartość Pliku
+      </button>
+      {error && (
+        <p className="mt-4 text-red-500 font-medium text-center">{error}</p>
+      )}
+      {flag && (
+        <p className="font-bold">
+          Flaga:{" "}
+          <span className="mt-4 text-green-600 font-semibold text-lg text-center">
+            {flag}
+          </span>
+        </p>
+      )}
       {fileContent && (
-        <button onClick={saveAsMarkdown}>Save as Markdown</button>
+        <p className="font-bold">
+          Zawartość Pliku:{" "}
+          <span className="mt-4 text-green-600 font-semibold text-lg text-center">
+            {fileContent}
+          </span>
+        </p>
+      )}
+      {fileContent && (
+        <button
+          type="button"
+          onClick={saveAsMarkdown}
+          className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition duration-300 mt-4"
+        >
+          Save as Markdown
+        </button>
       )}
     </div>
   );
-}
+};
 
 export default FetchData;
