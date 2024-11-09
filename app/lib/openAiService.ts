@@ -26,10 +26,9 @@ export const connectWithOpenAi = async (
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP error ${response.status}`);
+    return { ok: false, status: response.status, error: `Failed to fetch OpenAI response. Status: ${response.status}` };
   }
 
   const data = await response.json();
-
-  return data;
+  return { ok: true, data };
 };
