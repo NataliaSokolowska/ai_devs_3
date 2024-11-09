@@ -2,7 +2,7 @@ import { MODELS, OPEN_AI_API_URL } from "./openAiService.constants";
 
 export const connectWithOpenAi = async (
   userMessage: string,
-  systemMessage: string = "You are a helpful assistant."
+  systemMessage = "You are a helpful assistant.",
 ) => {
   const response = await fetch(`${OPEN_AI_API_URL}`, {
     method: "POST",
@@ -26,7 +26,11 @@ export const connectWithOpenAi = async (
   });
 
   if (!response.ok) {
-    return { ok: false, status: response.status, error: `Failed to fetch OpenAI response. Status: ${response.status}` };
+    return {
+      ok: false,
+      status: response.status,
+      error: `Failed to fetch OpenAI response. Status: ${response.status}`,
+    };
   }
 
   const data = await response.json();
