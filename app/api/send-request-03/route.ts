@@ -1,5 +1,7 @@
 import { connectWithOpenAi } from "@/app/lib/openAiService";
 import { NextResponse } from "next/server";
+import path from "path";
+import fs from "fs/promises";
 
 interface TestItem {
   question: string;
@@ -10,10 +12,31 @@ interface TestItem {
   };
 }
 
-export async function POST() {
+interface JsonData {
+  description: string;
+  copyright: string;
+  "test-data": TestItem[];
+}
+
+const localFilePath = path.resolve("app/tasks/03/files/test-data.json");
+
+async function getLocalOrRemoteData(): Promise<JsonData> {
   try {
+    const localData = await fs.readFile(localFilePath, "utf-8");
+    return JSON.parse(localData);
+  } catch (err) {
+    console.error("Failed to read local file:", err);
     const jsonResponse = await fetch(process.env.QUESTION_URL_03 as string);
     const jsonData = await jsonResponse.json();
+
+    await fs.writeFile(localFilePath, JSON.stringify(jsonData, null, 2));
+    return jsonData;
+  }
+}
+
+export async function POST() {
+  try {
+    const jsonData = await getLocalOrRemoteData();
 
     const correctedTestData = await Promise.all(
       jsonData["test-data"].map(async (item: TestItem) => {
