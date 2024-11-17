@@ -36,3 +36,38 @@ export const connectWithOpenAi = async (
   const data = await response.json();
   return { ok: true, data };
 };
+
+export const transcribeAudio = async (
+  audioFile: File,
+): Promise<{ ok: boolean; data?: any; error?: string }> => {
+  try {
+    const formData = new FormData();
+    formData.append("file", audioFile);
+    formData.append("model", MODELS.WHISPER_1);
+
+    const response = await fetch(`${OPEN_AI_API_URL}/v1/audio/transcriptions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        ok: false,
+        error: `Failed to transcribe audio. Status: ${response.status}, Response: ${errorText}`,
+      };
+    }
+
+    const data = await response.json();
+    return { ok: true, data };
+  } catch (error) {
+    console.error("Error during audio transcription:", error);
+    return {
+      ok: false,
+      error: "An unexpected error occurred during audio transcription.",
+    };
+  }
+};
