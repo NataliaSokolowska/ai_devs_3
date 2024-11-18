@@ -1,4 +1,8 @@
-import { MODELS, OPEN_AI_API_URL } from "./openAiService.constants";
+import {
+  MODELS,
+  OPEN_AI_API_URL,
+  OPEN_AI_WHISPER_API_URL,
+} from "./openAiService.constants";
 
 export const connectWithOpenAi = async (
   userMessage: string,
@@ -45,7 +49,7 @@ export const transcribeAudio = async (
     formData.append("file", audioFile);
     formData.append("model", MODELS.WHISPER_1);
 
-    const response = await fetch(`${OPEN_AI_API_URL}/v1/audio/transcriptions`, {
+    const response = await fetch(`${OPEN_AI_WHISPER_API_URL}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
