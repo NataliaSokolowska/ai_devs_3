@@ -9,12 +9,15 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
+    "axios": "^1.7.7",
     "next": "15.0.2",
     "react": "19.0.0-rc-02c0e824-20241028",
     "react-dom": "19.0.0-rc-02c0e824-20241028"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
+    "@types/adm-zip": "^0.5.6",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

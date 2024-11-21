@@ -2,93 +2,117 @@ import fs from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
 import { connectWithOpenAi, transcribeAudio } from "@/app/lib/openAiService";
+import { downloadAndExtract } from "../download-audio/route";
 
-const AUDIO_FOLDER_PATH = path.resolve("app/tasks/S02E01/audio");
-const TRANSCRIPTION_FOLDER_PATH = path.resolve(
-  "app/tasks/S02E01/transcriptions",
-);
-
-async function getOrTranscribeFile(file: File): Promise<string> {
+// Method to ensure that the files exist
+async function ensureFilesExist(
+  folderPath: string,
+  url: string,
+): Promise<void> {
   try {
+    await fs.mkdir(folderPath, { recursive: true });
+
+    const files = await fs.readdir(folderPath);
+    if (files.length === 0) {
+      await downloadAndExtract(url, folderPath);
+    }
+  } catch (error) {
+    console.error(
+      `Folder ${folderPath} does not exist or is inaccessible. Downloading...`,
+      error,
+    );
+    await downloadAndExtract(url, folderPath);
+  }
+}
+
+// Method to get existing or new transcriptions
+async function getExistingOrNewTranscriptions(
+  audioFiles: string[],
+  audioPath: string,
+  transcriptionFolder: string,
+): Promise<string[]> {
+  const transcriptions: string[] = [];
+  const transcriptionFiles = await fs.readdir(transcriptionFolder);
+
+  for (const fileName of audioFiles) {
+    const audioFilePath = path.join(audioPath, fileName);
+    const baseName = path.parse(fileName).name;
+
+    const transcriptionFileName = `${baseName}.txt`;
     const transcriptionFilePath = path.join(
-      TRANSCRIPTION_FOLDER_PATH,
-      `${file.name}.txt`,
+      transcriptionFolder,
+      transcriptionFileName,
     );
 
-    try {
+    //If transcription file exists, read it, else transcribe the audio
+    if (transcriptionFiles.includes(transcriptionFileName)) {
       const existingTranscription = await fs.readFile(
         transcriptionFilePath,
         "utf-8",
       );
-      return existingTranscription;
-    } catch {
-      console.error(
-        `No transcription found for file: ${file.name}, transcribing...`,
-      );
-    }
+      transcriptions.push(existingTranscription);
+    } else {
+      try {
+        const fileBuffer = await fs.readFile(audioFilePath);
+        const file = new File([fileBuffer], fileName);
 
-    const result = await transcribeAudio(file);
-    if (result.ok) {
-      const transcription = result.data.text;
+        const result = await transcribeAudio(file);
+        if (result.ok) {
+          const transcription = result.data.text;
 
-      await fs.writeFile(transcriptionFilePath, transcription, "utf-8");
-      return transcription;
-    }
-    console.error(`Transcription failed for file: ${file.name}`, result.error);
-    throw new Error(`Failed to transcribe file: ${file.name}`);
-  } catch (error) {
-    console.error("Error during transcription process:", error);
-    throw error;
-  }
-}
-
-async function processAudioFiles(files: File[]): Promise<string[]> {
-  const transcriptions: string[] = [];
-
-  for (const file of files) {
-    try {
-      const transcription = await getOrTranscribeFile(file);
-      transcriptions.push(transcription);
-    } catch (error) {
-      console.error("Error processing file:", file.name, error);
+          // Save transcription to file
+          await fs.writeFile(transcriptionFilePath, transcription, "utf-8");
+          transcriptions.push(transcription);
+        } else {
+          console.error(
+            `Transcription failed for file: ${fileName}`,
+            result.error,
+          );
+          throw new Error(`Failed to transcribe file: ${fileName}`);
+        }
+      } catch (err) {
+        console.error(`Error reading or transcribing file: ${fileName}`, err);
+        throw new Error(`Failed to process file: ${fileName}`);
+      }
     }
   }
 
   return transcriptions;
 }
 
-async function getAudioFiles(): Promise<File[]> {
+export async function POST(req: Request) {
   try {
-    const fileNames = await fs.readdir(AUDIO_FOLDER_PATH);
-    const files: File[] = [];
+    // Get audio URL and path from the request
+    const { audioUrl, audioPath } = await req.json();
 
-    for (const fileName of fileNames) {
-      const filePath = path.join(AUDIO_FOLDER_PATH, fileName);
-      const fileBuffer = await fs.readFile(filePath);
-      const file = new File([fileBuffer], fileName);
-      files.push(file);
+    if (!audioUrl || !audioPath) {
+      return NextResponse.json(
+        { error: "Missing required parameters: audioUrl or transcriptionUrl" },
+        { status: 400 },
+      );
     }
 
-    return files;
-  } catch (error) {
-    console.error("Error reading audio files:", error);
-    throw new Error("Failed to read audio files");
-  }
-}
+    //Set the audio folder path and transcription folder path
+    const audioFolderPath = path.resolve(audioPath, "../audio");
+    const transcriptionFolder = path.resolve(audioPath, "../transcriptions");
 
-export async function POST() {
-  try {
-    await fs.mkdir(TRANSCRIPTION_FOLDER_PATH, { recursive: true });
+    await ensureFilesExist(audioFolderPath, audioUrl);
 
-    const audioFiles = await getAudioFiles();
-    if (audioFiles.length === 0) {
+    // Get all audio files in the folder
+    const audioFilesNames = await fs.readdir(audioFolderPath);
+    if (audioFilesNames.length === 0) {
       return NextResponse.json({ error: "No audio files found" });
     }
-
-    const transcriptions = await processAudioFiles(audioFiles);
+    // Create the transcription folder if it does not exist
+    await fs.mkdir(transcriptionFolder, { recursive: true });
+    // Get existing or new transcriptions
+    const transcriptions = await getExistingOrNewTranscriptions(
+      audioFilesNames,
+      audioFolderPath,
+      transcriptionFolder,
+    );
 
     if (transcriptions.length === 0) {
-      console.error("No transcriptions available for processing.");
       return NextResponse.json({ error: "No transcriptions available." });
     }
 
@@ -111,6 +135,7 @@ export async function POST() {
       </result>
     `;
 
+    // Connect with OpenAI to get the answer
     const response = await connectWithOpenAi(context, systemPrompt);
     if (!response.ok) {
       console.error(

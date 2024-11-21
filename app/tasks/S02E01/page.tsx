@@ -16,6 +16,10 @@ const TaskS02E01Page = () => {
       const response = await fetch("/api/send-request-S02E01", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audioUrl: process.env.NEXT_PUBLIC_AUDIO_URL_S02_E01,
+          audioPath: "app/tasks/S02E01/transcriptions",
+        }),
       });
 
       if (!response.ok) {
