@@ -1,6 +1,7 @@
 import {
   MODELS,
   OPEN_AI_API_URL,
+  OPEN_AI_DALLE_API_URL,
   OPEN_AI_WHISPER_API_URL,
 } from "./openAiService.constants";
 
@@ -76,5 +77,40 @@ export const transcribeAudio = async (
       ok: false,
       error: "An unexpected error occurred during audio transcription.",
     };
+  }
+};
+
+export const generateImageWithDalle = async (
+  prompt: string,
+  size = "1024x1024",
+): Promise<{ ok: boolean; data?: any; error?: string }> => {
+  try {
+    const response = await fetch(`${OPEN_AI_DALLE_API_URL}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "dall-e-3",
+        prompt,
+        n: 1,
+        size,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        ok: false,
+        error: `Failed to generate image. Status: ${response.status} - ${errorText}`,
+      };
+    }
+
+    const data = await response.json();
+    return { ok: true, data };
+  } catch (error) {
+    console.error("Error in generateImageWithDalle:", error);
+    return { ok: false, error: "Internal server error." };
   }
 };
