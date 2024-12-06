@@ -59,7 +59,7 @@ export async function POST() {
     const flagMatch = reportResult.message.match(/{{FLG:(.*?)}}/);
     const flag = flagMatch ? flagMatch[1] : "Flag not found";
 
-    return NextResponse.json({ flag });
+    return NextResponse.json({ flag, imageUrl });
   } catch (error) {
     console.error("Error processing the request:", error);
     return NextResponse.json(

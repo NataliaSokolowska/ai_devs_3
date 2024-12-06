@@ -1,14 +1,18 @@
 "use client";
+import Image from "next/image";
 import React, { useState } from "react";
 
 export default function RobotIdTask() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flag, setFlag] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const handleFetchData = async () => {
     setLoading(true);
     setError(null);
+    setImageUrl(null);
+    setFlag(null);
 
     try {
       const response = await fetch("/api/send-request-S02E03", {
@@ -26,6 +30,7 @@ export default function RobotIdTask() {
         setError(data.error);
       } else {
         setFlag(data.flag || "No flag found");
+        setImageUrl(data.imageUrl || null);
         setError(null);
       }
     } catch (err) {
@@ -56,6 +61,17 @@ export default function RobotIdTask() {
             {flag}
           </span>
         </p>
+      )}
+      {imageUrl && (
+        <div className="mt-4">
+          <Image
+            src={imageUrl}
+            alt="Generated Robot"
+            className="rounded border shadow-md"
+            width={1024}
+            height={1024}
+          />
+        </div>
       )}
     </div>
   );
