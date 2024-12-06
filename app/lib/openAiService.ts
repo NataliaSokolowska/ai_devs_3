@@ -5,9 +5,10 @@ import {
 } from "./openAiService.constants";
 
 export const connectWithOpenAi = async (
-  userMessage: string,
+  userMessage: string | object,
   systemMessage = "You are a helpful assistant.",
   temperature = 1.0,
+  model = MODELS.GPT_4O_MINI,
 ) => {
   const response = await fetch(`${OPEN_AI_API_URL}`, {
     method: "POST",
@@ -16,7 +17,7 @@ export const connectWithOpenAi = async (
       Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: MODELS.GPT_4O_MINI,
+      model: model,
       temperature,
       messages: [
         {
