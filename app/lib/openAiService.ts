@@ -7,6 +7,7 @@ import {
 export const connectWithOpenAi = async (
   userMessage: string,
   systemMessage = "You are a helpful assistant.",
+  temperature = 1.0,
 ) => {
   const response = await fetch(`${OPEN_AI_API_URL}`, {
     method: "POST",
@@ -16,6 +17,7 @@ export const connectWithOpenAi = async (
     },
     body: JSON.stringify({
       model: MODELS.GPT_4O_MINI,
+      temperature,
       messages: [
         {
           role: "system",

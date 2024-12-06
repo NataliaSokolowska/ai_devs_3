@@ -117,26 +117,48 @@ export async function POST(req: Request) {
     }
 
     const context = transcriptions.join("\n");
+    //     const systemPrompt = `
+    // <objective>
+    // Determine the specific street on which the university's specific institute, where Andrzej Maj lectures, is located, based on the provided testimonies.
+    // </objective>
+
+    // <rules>
+    // 1. Take a deep breath.
+    // 2. Think in Polish.
+    // 3. Avoid directly searching for street names in the testimonies. Deduce the name at the final step.
+    // 4. Follow this reasoning process:
+    //    - Step 1: Identify the city where Andrzej Maj works.
+    //    - Step 2: Identify the university where Andrzej Maj works.
+    //    - Step 3: Identify the specific institute or department where Andrzej Maj works.
+    //    - Step 4: Using your internal knowledge, determine the street name associated with the institute from Step 3.
+    // 5. Combine information hierarchically and logically.
+    // 6. If no valid answer can be determined, respond with: "No specific location found in the provided information."
+    // </rules>
+
+    // <output>
+    // - Step 1: [City]
+    // - Step 2: [University]
+    // - Step 3: [Institute/Department]
+    // - Step 4: [Street Name or "No specific location found in the provided information."]
+    // </output>
+    // `;
+
     const systemPrompt = `
-      <objective>
-      Determine the specific street on which the university's specific institute, where Andrzej Maj lectures, is located.
-      </objective>
-      <rules>
-      1. Take a deep breath.
-      2. Thinking in Polish.
-      3. Use all provided transcriptions and your internal knowledge to deduce the specific institute's location, even if the exact street name is not explicitly mentioned.
-      4. Focus on identifying the street associated with the institute where Andrzej Maj lectures, rather than the university's main address.
-      5. If conflicting information is present, evaluate and choose the most plausible answer based on consistency and probability.
-      6. Think aloud as you analyze the information, but your final answer must only contain the name of the street.
-      7. Avoid guessing arbitrarily. Base your answer on logical deduction from the provided transcriptions and your internal knowledge.
-      </rules>
-      <result>
-      Return only the name of the street where the specific institute is located. Do not include explanations, assumptions, or commentary in your final output.
-      </result>
-    `;
+Be my assistant, conducting logical reasoning in Polish. Your goal is to provide a specific answer based on testimonies, considering both general suggestions and detailed hints to combine all workplace components. You will receive testimonies from various people, each marked with <person>...</person>.
+Question: What is the name of the street where Andrzej Maj works?
+Reasoning Process:
+No Direct Street Name Search: Avoid looking directly for any street names mentioned in testimonies. Instead, conclude the street name at the final step.
+General and Specific Workplaces:
+Broad Suggestions: Look for any high-level workplace mentions, such as universities, cities, or fields of study.
+Detailed Identifiers: Also, find specific workplace elements such as department names, institutes, or faculty. Aim to extract the workplace name without generalizing to “main place” alone.
+Hierarchy of Place Names:
+Gather all relevant terms that describe the workplace, arranging them hierarchically to create a precise, detailed workplace name.
+Combine Information: Using your general knowledge, combine these elements into the most complete, specific name of Andrzej Maj’s workplace without any unnecessary generalization.
+Street Identification: With the exact workplace name established, identify the associated street name from your general knowledge of Polish universities and institutions.
+Output: Provide only the street name where Andrzej Maj works.`;
 
     // Connect with OpenAI to get the answer
-    const response = await connectWithOpenAi(context, systemPrompt);
+    const response = await connectWithOpenAi(context, systemPrompt, 0.5);
     if (!response.ok) {
       console.error(
         "AI failed to generate an answer:",
