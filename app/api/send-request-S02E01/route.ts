@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
 import { connectWithOpenAi, transcribeAudio } from "@/app/lib/openAiService";
-import { downloadAndExtract } from "../download-audio/route";
+import { downloadAndExtract } from "../unzip-data/route";
 
 // Method to ensure that the files exist
 async function ensureFilesExist(
