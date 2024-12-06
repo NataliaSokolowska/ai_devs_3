@@ -1,8 +1,13 @@
-import { MODELS, OPEN_AI_API_URL } from "./openAiService.constants";
+import {
+  MODELS,
+  OPEN_AI_API_URL,
+  OPEN_AI_WHISPER_API_URL,
+} from "./openAiService.constants";
 
 export const connectWithOpenAi = async (
   userMessage: string,
   systemMessage = "You are a helpful assistant.",
+  temperature = 1.0,
 ) => {
   const response = await fetch(`${OPEN_AI_API_URL}`, {
     method: "POST",
@@ -12,6 +17,7 @@ export const connectWithOpenAi = async (
     },
     body: JSON.stringify({
       model: MODELS.GPT_4O_MINI,
+      temperature,
       messages: [
         {
           role: "system",
@@ -35,4 +41,39 @@ export const connectWithOpenAi = async (
 
   const data = await response.json();
   return { ok: true, data };
+};
+
+export const transcribeAudio = async (
+  audioFile: File,
+): Promise<{ ok: boolean; data?: any; error?: string }> => {
+  try {
+    const formData = new FormData();
+    formData.append("file", audioFile);
+    formData.append("model", MODELS.WHISPER_1);
+
+    const response = await fetch(`${OPEN_AI_WHISPER_API_URL}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        ok: false,
+        error: `Failed to transcribe audio. Status: ${response.status}, Response: ${errorText}`,
+      };
+    }
+
+    const data = await response.json();
+    return { ok: true, data };
+  } catch (error) {
+    console.error("Error during audio transcription:", error);
+    return {
+      ok: false,
+      error: "An unexpected error occurred during audio transcription.",
+    };
+  }
 };
