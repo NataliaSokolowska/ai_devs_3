@@ -2,28 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
 import { connectWithOpenAi, transcribeAudio } from "@/app/lib/openAiService";
-import { downloadAndExtract } from "../unzip-data/route";
-
-// Method to ensure that the files exist
-async function ensureFilesExist(
-  folderPath: string,
-  url: string,
-): Promise<void> {
-  try {
-    await fs.mkdir(folderPath, { recursive: true });
-
-    const files = await fs.readdir(folderPath);
-    if (files.length === 0) {
-      await downloadAndExtract(url, folderPath);
-    }
-  } catch (error) {
-    console.error(
-      `Folder ${folderPath} does not exist or is inaccessible. Downloading...`,
-      error,
-    );
-    await downloadAndExtract(url, folderPath);
-  }
-}
+import { ensureFilesExist } from "../unzip-data/route";
 
 // Method to get existing or new transcriptions
 async function getExistingOrNewTranscriptions(

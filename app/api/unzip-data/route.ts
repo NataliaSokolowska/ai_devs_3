@@ -23,7 +23,7 @@ function convertReadableStreamToNodeReadable(
 }
 
 //Method to download and extract the zip file
-export async function downloadAndExtract(
+async function downloadAndExtract(
   url: string,
   outputDirectory: string,
 ): Promise<void> {
@@ -43,11 +43,43 @@ export async function downloadAndExtract(
 
   await pipeline(nodeReadableStream, fileStream);
 
+  const fileExists = await fs.stat(tempFilePath).catch(() => null);
+  if (!fileExists) {
+    throw new Error(`Temporary ZIP file not found: ${tempFilePath}`);
+  }
+
   const zip = new AdmZip(tempFilePath);
   await fs.mkdir(outputDirectory, { recursive: true });
-  zip.extractAllTo(outputDirectory, true);
+
+  try {
+    zip.extractAllTo(outputDirectory, true);
+  } catch (error) {
+    console.error(`Failed to extract ZIP file: ${error}`);
+    throw error;
+  }
 
   await fs.unlink(tempFilePath);
+}
+
+export async function ensureFilesExist(
+  folderPath: string,
+  url: string,
+  forceDownload = false, //Optional param to force download
+): Promise<void> {
+  try {
+    await fs.mkdir(folderPath, { recursive: true });
+
+    const files = await fs.readdir(folderPath);
+    if (forceDownload || files.length === 0) {
+      await downloadAndExtract(url, folderPath);
+    }
+  } catch (error) {
+    console.error(
+      `Folder ${folderPath} does not exist or is inaccessible. Downloading...`,
+      error,
+    );
+    await downloadAndExtract(url, folderPath);
+  }
 }
 
 //Method to handle POST request
