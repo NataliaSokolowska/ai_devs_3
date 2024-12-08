@@ -45,6 +45,11 @@ export default function Home() {
             Przejdź do Zadania S02E04
           </button>
         </Link>
+        <Link href="/tasks/S02E05">
+          <button type="button" className={styles.button}>
+            Przejdź do Zadania S02E05
+          </button>
+        </Link>
       </main>
     </div>
   );
