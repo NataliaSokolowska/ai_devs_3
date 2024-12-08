@@ -5,6 +5,14 @@ import {
   OPEN_AI_WHISPER_API_URL,
 } from "./openAiService.constants";
 
+export type TranscriptionResult = {
+  ok: boolean;
+  data?: {
+    text: string;
+  };
+  error?: string;
+};
+
 export const connectWithOpenAi = async (
   userMessage: string | object,
   systemMessage = "You are a helpful assistant.",
@@ -47,7 +55,7 @@ export const connectWithOpenAi = async (
 
 export const transcribeAudio = async (
   audioFile: File,
-): Promise<{ ok: boolean; data?: any; error?: string }> => {
+): Promise<TranscriptionResult> => {
   try {
     const formData = new FormData();
     formData.append("file", audioFile);

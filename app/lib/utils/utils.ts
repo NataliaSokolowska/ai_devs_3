@@ -1,7 +1,11 @@
 import { promises as fs, Stats } from "fs";
 
 import path from "path";
-import { connectWithOpenAi, transcribeAudio } from "../openAiService";
+import {
+  connectWithOpenAi,
+  transcribeAudio,
+  TranscriptionResult,
+} from "../openAiService";
 
 export const sanitizeFileNames = (files: string[]): string[] => {
   const sanitized = files.map((file) => {
@@ -96,7 +100,7 @@ async function processImageFile(
   return extractedText;
 }
 
-async function processAudioFile(
+export async function processAudioFile(
   filePath: string,
   outputDirectory: string,
 ): Promise<string> {
@@ -116,19 +120,20 @@ async function processAudioFile(
     return await fs.readFile(transcriptPath, "utf-8");
   }
 
-  const audioFile = new File([await fs.readFile(filePath)], file, {
+  const fileBuffer = await fs.readFile(filePath);
+  const audioFile = new File([fileBuffer], file, {
     type: "audio/mpeg",
   });
 
-  const transcriptionResult = await transcribeAudio(audioFile);
-
-  if (!transcriptionResult.ok) {
+  const transcriptionResult: TranscriptionResult =
+    await transcribeAudio(audioFile);
+  if (!transcriptionResult.ok || !transcriptionResult.data?.text) {
     throw new Error(
-      `Failed to transcribe audio file. Error: ${transcriptionResult.error}`,
+      `Failed to transcribe audio file. Error: ${transcriptionResult.error || "Unknown error"}`,
     );
   }
 
-  const transcription = transcriptionResult.data.text || "";
+  const transcription = transcriptionResult.data.text;
   await ensureFolderExists(path.dirname(transcriptPath));
   await fs.writeFile(transcriptPath, transcription, "utf-8");
 

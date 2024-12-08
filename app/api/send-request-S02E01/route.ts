@@ -1,63 +1,9 @@
 import fs from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
-import { connectWithOpenAi, transcribeAudio } from "@/app/lib/openAiService";
+import { connectWithOpenAi } from "@/app/lib/openAiService";
 import { ensureFilesExist } from "../unzip-data/route";
-
-// Method to get existing or new transcriptions
-async function getExistingOrNewTranscriptions(
-  audioFiles: string[],
-  audioPath: string,
-  transcriptionFolder: string,
-): Promise<string[]> {
-  const transcriptions: string[] = [];
-  const transcriptionFiles = await fs.readdir(transcriptionFolder);
-
-  for (const fileName of audioFiles) {
-    const audioFilePath = path.join(audioPath, fileName);
-    const baseName = path.parse(fileName).name;
-
-    const transcriptionFileName = `${baseName}.txt`;
-    const transcriptionFilePath = path.join(
-      transcriptionFolder,
-      transcriptionFileName,
-    );
-
-    //If transcription file exists, read it, else transcribe the audio
-    if (transcriptionFiles.includes(transcriptionFileName)) {
-      const existingTranscription = await fs.readFile(
-        transcriptionFilePath,
-        "utf-8",
-      );
-      transcriptions.push(existingTranscription);
-    } else {
-      try {
-        const fileBuffer = await fs.readFile(audioFilePath);
-        const file = new File([fileBuffer], fileName);
-
-        const result = await transcribeAudio(file);
-        if (result.ok) {
-          const transcription = result.data.text;
-
-          // Save transcription to file
-          await fs.writeFile(transcriptionFilePath, transcription, "utf-8");
-          transcriptions.push(transcription);
-        } else {
-          console.error(
-            `Transcription failed for file: ${fileName}`,
-            result.error,
-          );
-          throw new Error(`Failed to transcribe file: ${fileName}`);
-        }
-      } catch (err) {
-        console.error(`Error reading or transcribing file: ${fileName}`, err);
-        throw new Error(`Failed to process file: ${fileName}`);
-      }
-    }
-  }
-
-  return transcriptions;
-}
+import { ensureFolderExists, processAudioFile } from "@/app/lib/utils/utils";
 
 export async function POST(req: Request) {
   try {
@@ -83,16 +29,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No audio files found" });
     }
     // Create the transcription folder if it does not exist
-    await fs.mkdir(transcriptionFolder, { recursive: true });
-    // Get existing or new transcriptions
-    const transcriptions = await getExistingOrNewTranscriptions(
-      audioFilesNames,
-      audioFolderPath,
-      transcriptionFolder,
-    );
+    await ensureFolderExists(transcriptionFolder);
 
-    if (transcriptions.length === 0) {
-      return NextResponse.json({ error: "No transcriptions available." });
+    // Get existing or new transcriptions
+    const transcriptions: string[] = [];
+    for (const fileName of audioFilesNames) {
+      const audioFilePath = path.join(audioFolderPath, fileName);
+      try {
+        const transcription = await processAudioFile(
+          audioFilePath,
+          transcriptionFolder,
+        );
+        transcriptions.push(transcription);
+      } catch (err) {
+        console.error(`Failed to process file: ${fileName}`, err);
+      }
     }
 
     const context = transcriptions.join("\n");
