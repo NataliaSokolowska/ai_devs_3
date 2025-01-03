@@ -28,7 +28,7 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    // 1. Pobierz treść HTML i skonwertuj na Markdown
+    // 1. Get HTML content and convert it to Markdown
     const informationResponse = await fetch(informationUrl);
     if (!informationResponse.ok) {
       throw new Error(
@@ -37,13 +37,12 @@ export async function POST(req: Request) {
     }
     const htmlContent = await informationResponse.text();
     const baseUrl = informationUrl.replace(/\/[^/]+$/, "");
-    const markdownContent = await convertHtmlToMarkdown(htmlContent, baseUrl);
+    let markdownContent = await convertHtmlToMarkdown(htmlContent, baseUrl);
 
-    // 2. Zapisz plik Markdown
     const markdownFilePath = path.join(outputDirectory, "converted_content.md");
     await saveMarkdownToFile(markdownContent, markdownFilePath);
 
-    // 3. Pobierz i zapisz obrazy
+    // 2. Fetch and save images
     const imageOutputDir = path.join(
       process.cwd(),
       "app",
@@ -66,30 +65,40 @@ export async function POST(req: Request) {
       imageMap[imageUrl] = `./images/${path.basename(localImagePath)}`;
     }
 
-    // 4. Zaktualizuj ścieżki obrazów w Markdown
-    const updatedMarkdownContent = updateImagePathsInMarkdown(
+    markdownContent = updateImagePathsInMarkdown(markdownContent, imageMap);
+
+    // 3. Analyze image content and add descriptions to the Markdown
+    const imageAnalysisResults = (
+      await Promise.all(
+        imageUrls.map(async (imageUrl) => {
+          const localImagePath = path.join(
+            imageOutputDir,
+            path.basename(imageUrl),
+          );
+
+          try {
+            return await analyzeImageContent(
+              localImagePath,
+              "Identify the specific object or food item in this image. Be concise and provide one-word answer if possible. Return the answer in Polish.",
+            );
+          } catch (error) {
+            console.error(`Failed to analyze image: ${localImagePath}`, error);
+
+            return "";
+          }
+        }),
+      )
+    ).join("\n");
+
+    const updatedMarkdownWithDescriptions = injectImageDescriptionsIntoMarkdown(
       markdownContent,
-      imageMap,
+      imageAnalysisResults.split("\n"),
     );
 
-    // 5. Analiza obrazów
-    const analyzedImages: string[] = [];
-    for (const imageUrl of imageUrls) {
-      const localImagePath = path.join(imageOutputDir, path.basename(imageUrl));
-      try {
-        const description = await analyzeImageContent(
-          localImagePath,
-          "Identify the specific object or food item in this image. Be concise and provide one-word answer if possible. Return the answer in Polsh.",
-        );
-        analyzedImages.push(description);
-      } catch (error) {
-        console.error(`Failed to analyze image: ${localImagePath}`, error);
-      }
-    }
+    // Save updated markdown with image descriptions
+    await saveMarkdownToFile(updatedMarkdownWithDescriptions, markdownFilePath);
 
-    const imageAnalysisResults = analyzedImages.join("\n");
-
-    // 6. Pobierz i zapisz pliki audio
+    // 4. Extract audio links from the Markdown and download audio files
     const audioOutputDir = path.join(
       process.cwd(),
       "app",
@@ -109,27 +118,16 @@ export async function POST(req: Request) {
       audioMap[audioUrl] = `./audio/${path.basename(localAudioPath)}`;
     }
 
-    // 7. Transkrypcja plików audio
-    const updatedMarkdownWithAudio = updatedMarkdownContent.replace(
+    markdownContent = markdownContent.replace(
       /\[Audio\]\((https:\/\/[^)]+\.mp3)\)/g,
       (match, url) => {
-        if (audioMap[url]) {
-          return `[Audio](${audioMap[url]})`;
-        }
-        return match;
+        return audioMap[url] ? `[Audio](${audioMap[url]})` : match;
       },
     );
 
-    // 8. Wstrzykiwanie opisów obrazów do Markdowna
-    const updatedMarkdownWithDescriptions = injectImageDescriptionsIntoMarkdown(
-      updatedMarkdownWithAudio,
-      analyzedImages,
-    );
+    await saveMarkdownToFile(markdownContent, markdownFilePath);
 
-    // Zapisz zaktualizowany Markdown
-    await saveMarkdownToFile(updatedMarkdownWithDescriptions, markdownFilePath);
-
-    // 9. Transkrypcja plików audio
+    // 5. Generate transcriptions for audio files
     const transcriptionFolder = path.join(
       process.cwd(),
       "app",
@@ -141,23 +139,21 @@ export async function POST(req: Request) {
     await fs.promises.mkdir(transcriptionFolder, { recursive: true });
 
     const audioFiles = await fs.promises.readdir(audioOutputDir);
-    const transcriptions: string[] = [];
-    for (const fileName of audioFiles) {
-      const audioFilePath = path.join(audioOutputDir, fileName);
-      try {
-        const transcription = await processAudioFile(
-          audioFilePath,
-          transcriptionFolder,
-        );
-        transcriptions.push(transcription);
-      } catch (err) {
-        console.error(`Failed to process file: ${fileName}`, err);
-      }
-    }
+    const transcriptionContext = (
+      await Promise.all(
+        audioFiles.map(async (fileName) => {
+          const audioFilePath = path.join(audioOutputDir, fileName);
+          try {
+            return await processAudioFile(audioFilePath, transcriptionFolder);
+          } catch (err) {
+            console.error(`Failed to process file: ${fileName}`, err);
+            return "";
+          }
+        }),
+      )
+    ).join("\n");
 
-    const transcriptionContext = transcriptions.join("\n");
-
-    // 10. Pobranie pytań z questionUrl
+    // 6. Fetch questions from the provided URL
     const questionResponse = await fetch(questionUrl);
     if (!questionResponse.ok) {
       throw new Error(
@@ -167,7 +163,7 @@ export async function POST(req: Request) {
     const questionsText = await questionResponse.text();
     const questions = questionsText.split("\n").map((q) => q.trim());
 
-    // 11. Generowanie odpowiedzi
+    // 7. Prepare and send questions to the AI model
     const answers: Record<string, string> = {};
 
     for (const question of questions) {
@@ -177,37 +173,34 @@ export async function POST(req: Request) {
       }
 
       const prompt = `
-You are an AI assistant tasked with answering questions based on the provided content, images, and audio transcripts. Use the following information to answer each question accurately and concisely.
+        You are an AI assistant tasked with answering questions based on the provided content, images, and audio transcripts. Use the following information to answer each question accurately and concisely.
 
-### Content:
-${updatedMarkdownWithDescriptions}
+        ### Content:
+        ${updatedMarkdownWithDescriptions}
+         ### Image Descriptions:
+        ${imageAnalysisResults}
+        ### Audio Transcripts:
+        ${transcriptionContext}
 
-    ### Image Descriptions:
-${imageAnalysisResults}
+        ### Instructions:
+        - Carefully analyze the provided content, including descriptions of images.
+        - Use specific names for objects, fruits, or dishes seen in the images.
+        - Avoid generic terms like "fruit" or "food".
+        - Respond concisely with one-word or short-phrase answers.
 
-      ### Audio Transcripts:
-      ${transcriptionContext}
+        ### Question:
+        ${question}
 
-### Instructions:
-- Carefully analyze the provided content, including descriptions of images.
-- Use specific names for objects, fruits, or dishes seen in the images.
-- Avoid generic terms like "fruit" or "food".
-- Respond concisely with one-word or short-phrase answers.
-
-### Question:
-${question}
-
-Provide your response in the exact format:
-**Answer:** [your one-word or short-phrase answer]
-`;
+        Provide your response in the exact format:
+        **Answer:** [your one-word or short-phrase answer]
+      `;
       const response = await connectWithOpenAi(prompt, undefined, 0.7);
 
       if (response.ok) {
-        console.log("AI response:", response.data.choices[0]?.message?.content);
         const rawAnswer =
           response.data.choices[0]?.message?.content || "unknown";
 
-        // Poprawiony regex do parsowania odpowiedzi
+        // Regex to extract the answer from the raw response
         const cleanAnswerMatch = rawAnswer.match(
           /^(\*\*Answer:\*\*|\*Answer:\*)\s*(.+)/,
         );
@@ -220,7 +213,7 @@ Provide your response in the exact format:
           continue;
         }
 
-        // Pobieranie identyfikatora pytania
+        // Extract question ID from the question text
         const questionIdMatch = question.match(/^(\d+)=/);
         const questionId = questionIdMatch ? questionIdMatch[1] : null;
 
@@ -241,6 +234,7 @@ Provide your response in the exact format:
       answer: answers,
     };
 
+    // 8. Send the answers to the response server
     const reportResponse = await fetch(process.env.RESPONSE_URL_04 as string, {
       method: "POST",
       headers: {
@@ -255,6 +249,7 @@ Provide your response in the exact format:
     }
 
     const reportResult = await reportResponse.json();
+    // Extract the flag from the response
     const flagMatch = reportResult.message.match(/{{FLG:(.*?)}}/);
     const flag = flagMatch ? flagMatch[1] : "Flag not found";
 

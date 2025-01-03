@@ -37,14 +37,14 @@ Wszystko to, rzecz jasna, pozostaje na razie w sferze hipotez. Dotychczasowe eks
 W jednym z naszych najbardziej spektakularnych testów udało się przesłać obraz fotograficzny do przeszłości z zachowaniem wyjątkowej dokładności i stabilności danych. W eksperymencie, który odbył się na rynku, zespół badaczy wykonał zdjęcie zachodzącego słońca o godzinie 19:42\. W celu zmniejszenia rozmiaru przesyłanych danych, zdjęcie zostało wykonane w formacie monochromatycznym. 
 
 ![](./images/rynek.png)
-**Description:** None. 
+**Description:** Nie wiem. 
 
 Orygionalne zdjęcie. Widok na kościół od strony 'Adasia'
 
 Wykorzystując zaawansowaną technologię transmisji temporalnej, dane zostały przetworzone i zapisane na karcie pamięci z odczytem czasowym wskazującym godzinę 16:08 tego samego dnia – ponad trzy godziny przed faktycznym wykonaniem fotografii. Pomimo precyzyjnej kalibracji i wzmocnienia sygnału, obraz uległ niewielkiemu uszkodzeniu, ujawniając drobne zakłócenia i artefakty widoczne w prawej części zdjęcia.
 
 ![](./images/rynek_glitch.png)
-**Description:** I can't identify specific objects or food items in this image. 
+**Description:** Nie mogę zidentyfikować obiektu ani jedzenia w tym obrazie. 
 
 Uszkodzenia widoczne w odtworzonym pliku graficznym
 
@@ -55,12 +55,12 @@ Wynik ten jednak nadal wskazuje na rosnący potencjał przesyłania kompleksowyc
 Jednym z bardziej ambitnych eksperymentów była próba transmisji materii – w tym przypadku owocu. Choć przesył wydawał się sukcesem, przy dokładniejszym zbadaniu okazało się, że owoc dotarł na miejsce bez pestek, które zniknęły podczas procesu przesyłu. Co ciekawe, pestek nigdy nie odnaleziono, co sugeruje, że transmisja wciąż wymaga udoskonalenia, by zapewnić pełną integralność przesyłanych obiektów. 
 
 ![](./images/fruit01.png)
-**Description:** Strawberry. 
+**Description:** truskawka 
 
 Owoc przed transportem w czasie
 
 ![](./images/fruit02.png)
-**Description:** Strawberry 
+**Description:** Truskawka 
 
 Owoc pozbawiony pestek po transporcie
 
@@ -91,7 +91,7 @@ W pierwszych próbach przesyłania wielu obiektów zespół zmierzył się z nie
 Zamiast dwóch oddzielnych owoców, w miejscu docelowym pojawiał się jeden, wykazujący cechy zarówno wyglądu, jak i smaku obu przesłanych elementów. W ten sposób “przemieszany” owoc zawierał części wspólne obu pierwotnych struktur, co wskazuje na spontaniczne fuzje na poziomie komórkowym podczas procesu transmisji. 
 
 ![](./images/strangefruit.png)
-**Description:** Strawberry 
+**Description:** truskawka 
 
 Fuzja kodu genetycznego dwóch transportowanych owoców
 
