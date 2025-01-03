@@ -5,10 +5,10 @@ import {
   convertHtmlToMarkdown,
   downloadAndSaveAudio,
   downloadAndSaveImage,
-  extractAudioLinksFromMarkdown,
+  extractLinksFromHTML,
   injectImageDescriptionsIntoMarkdown,
   saveMarkdownToFile,
-  updateImagePathsInMarkdown,
+  updateFilePathsInMarkdown,
 } from "../extract-content-from-html/route";
 
 import path from "path";
@@ -51,6 +51,7 @@ export async function POST(req: Request) {
       "files",
       "images",
     );
+    await fs.promises.mkdir(imageOutputDir, { recursive: true });
 
     const imageUrls = [
       ...markdownContent.matchAll(/!\[.*?\]\((https:\/\/[^)]+)\)/g),
@@ -65,34 +66,32 @@ export async function POST(req: Request) {
       imageMap[imageUrl] = `./images/${path.basename(localImagePath)}`;
     }
 
-    markdownContent = updateImagePathsInMarkdown(markdownContent, imageMap);
+    markdownContent = updateFilePathsInMarkdown(markdownContent, imageMap);
+    await saveMarkdownToFile(markdownContent, markdownFilePath);
 
     // 3. Analyze image content and add descriptions to the Markdown
-    const imageAnalysisResults = (
-      await Promise.all(
-        imageUrls.map(async (imageUrl) => {
-          const localImagePath = path.join(
-            imageOutputDir,
-            path.basename(imageUrl),
+    const imageAnalysisResults = await Promise.all(
+      imageUrls.map(async (imageUrl) => {
+        const localImagePath = path.join(
+          imageOutputDir,
+          path.basename(imageUrl),
+        );
+
+        try {
+          return await analyzeImageContent(
+            localImagePath,
+            "Analyse the picture and identify what is in it. If it is food identify what food is in the picture. Focus on characteristics such as shape, texture and additives. If it's something else, write down what it is. Be concise and provide one-word answer if possible. Return the answer in Polish.",
           );
-
-          try {
-            return await analyzeImageContent(
-              localImagePath,
-              "Identify the specific object or food item in this image. Be concise and provide one-word answer if possible. Return the answer in Polish.",
-            );
-          } catch (error) {
-            console.error(`Failed to analyze image: ${localImagePath}`, error);
-
-            return "";
-          }
-        }),
-      )
-    ).join("\n");
+        } catch (error) {
+          console.error(`Failed to analyze image: ${localImagePath}`, error);
+          return "";
+        }
+      }),
+    );
 
     const updatedMarkdownWithDescriptions = injectImageDescriptionsIntoMarkdown(
       markdownContent,
-      imageAnalysisResults.split("\n"),
+      imageAnalysisResults,
     );
 
     // Save updated markdown with image descriptions
@@ -107,25 +106,45 @@ export async function POST(req: Request) {
       "files",
       "audio",
     );
-    const audioUrls = extractAudioLinksFromMarkdown(markdownContent, baseUrl);
+    await fs.promises.mkdir(audioOutputDir, { recursive: true });
+
+    const audioRegex = /\[Audio\]\((https:\/\/[^)]+\.mp3)\)/g;
+    const audioUrls = extractLinksFromHTML(
+      updatedMarkdownWithDescriptions,
+      baseUrl,
+      audioRegex,
+      "/dane/i/",
+    );
     const audioMap: Record<string, string> = {};
 
     for (const audioUrl of audioUrls) {
-      const localAudioPath = await downloadAndSaveAudio(
-        audioUrl,
-        audioOutputDir,
-      );
-      audioMap[audioUrl] = `./audio/${path.basename(localAudioPath)}`;
+      try {
+        const localAudioPath = await downloadAndSaveAudio(
+          audioUrl,
+          audioOutputDir,
+        );
+        audioMap[audioUrl] = `./audio/${path.basename(localAudioPath)}`;
+      } catch (error) {
+        console.error(`Failed to download audio: ${audioUrl}`, error);
+      }
     }
 
-    markdownContent = markdownContent.replace(
-      /\[Audio\]\((https:\/\/[^)]+\.mp3)\)/g,
-      (match, url) => {
-        return audioMap[url] ? `[Audio](${audioMap[url]})` : match;
-      },
+    for (const audioUrl of audioUrls) {
+      try {
+        const localAudioPath = await downloadAndSaveAudio(
+          audioUrl,
+          audioOutputDir,
+        );
+        audioMap[audioUrl] = `./audio/${path.basename(localAudioPath)}`;
+      } catch (error) {
+        console.error(`Failed to download audio: ${audioUrl}`, error);
+      }
+    }
+    const updatedMarkdownWithAudio = updateFilePathsInMarkdown(
+      updatedMarkdownWithDescriptions,
+      audioMap,
     );
-
-    await saveMarkdownToFile(markdownContent, markdownFilePath);
+    await saveMarkdownToFile(updatedMarkdownWithAudio, markdownFilePath);
 
     // 5. Generate transcriptions for audio files
     const transcriptionFolder = path.join(
@@ -233,6 +252,8 @@ export async function POST(req: Request) {
       apikey: process.env.NEXT_PUBLIC_AIDEVS_KEY as string,
       answer: answers,
     };
+
+    console.log("Report data:", JSON.stringify(reportData));
 
     // 8. Send the answers to the response server
     const reportResponse = await fetch(process.env.RESPONSE_URL_04 as string, {

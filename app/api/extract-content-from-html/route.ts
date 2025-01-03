@@ -6,110 +6,101 @@ import { NodeHtmlMarkdown } from "node-html-markdown";
 import { connectWithOpenAi } from "@/app/lib/openAiService";
 
 /**
- * Generuje pełny URL obrazka na podstawie reguł.
- * @param url - Oryginalny URL obrazka (pełny lub względny)
- * @param baseUrl - Bazowy URL dla względnych ścieżek
- * @param imagePathPrefix - Opcjonalny prefiks dla ścieżki (np. /dane/i/)
- * @returns Pełny URL obrazka
+ * Generates a full file URL based on rules.
+ * @param url - Original file URL (absolute or relative).
+ * @param baseUrl - Base URL for relative paths.
+ * @param pathPrefix - Path prefix (e.g., /dane/i/).
+ * @returns Full file URL.
  */
-function generateImageUrl(
+function generateFileUrl(
   url: string,
   baseUrl: string,
-  imagePathPrefix = "/dane/i/",
+  pathPrefix = "/dane/i/",
 ): string {
-  // Pobierz nazwę pliku z URL
   const fileName = path.basename(url);
 
   if (url.startsWith("http")) {
-    // Dla pełnych URL-i, zamień tylko segment ścieżki
     const urlObject = new URL(url);
-    return `${urlObject.origin}${imagePathPrefix}${fileName}`;
+    return `${urlObject.origin}${pathPrefix}${fileName}`;
   }
 
-  // Dla względnych URL-i, zbuduj pełny URL na podstawie baseUrl
-  return new URL(`${imagePathPrefix}${fileName}`, baseUrl).toString();
+  return new URL(`${pathPrefix}${fileName}`, baseUrl).toString();
 }
 
-async function extractImageLinksAndCaptionsFromHTML(
+/**
+ * Extracts file links from HTML or Markdown.
+ * @param html - HTML or Markdown content.
+ * @param baseUrl - Base URL for relative paths.
+ * @param regex - Regular expression for extracting links.
+ * @param pathPrefix - Path prefix for links.
+ * @returns Array of file URLs.
+ */
+export function extractLinksFromHTML(
   html: string,
   baseUrl: string,
-  imagePathPrefix = "/dane/i/",
-) {
-  const imageLinks: { url: string; caption: string }[] = [];
-  const regex = /<img[^>]+src="([^">]+)"[^>]*>?/g;
-  let match;
+  regex: RegExp,
+  pathPrefix: string,
+): string[] {
+  const links: string[] = [];
+  let match: RegExpExecArray | null;
 
-  while ((match = regex.exec(html)) !== null) {
-    const url = match[1]; // Ścieżka względna lub pełna
-    const nextChars = html.substring(match.index, match.index + 200);
-    const captionMatch = /<figcaption[^>]*>(.*)<\/figcaption>/g.exec(nextChars);
+  while (true) {
+    match = regex.exec(html);
+    if (!match) break;
 
-    // Generowanie pełnego URL-a za pomocą uniwersalnej funkcji
-    const fullUrl = generateImageUrl(url, baseUrl, imagePathPrefix);
+    const url = match[1];
+    const fullUrl = url.startsWith("http")
+      ? `${new URL(url).origin}${pathPrefix}${path.basename(url)}`
+      : generateFileUrl(url, baseUrl, pathPrefix);
 
-    if (captionMatch) {
-      imageLinks.push({ url: fullUrl, caption: captionMatch[1] });
-    } else {
-      imageLinks.push({ url: fullUrl, caption: "" });
-    }
+    links.push(fullUrl);
   }
 
-  return imageLinks;
+  return links;
 }
 
-async function extractAudioLinksFromHTML(html: string, baseUrl: string) {
-  const audioLinks: string[] = [];
-
-  // Wyrażenie regularne dla audio w tagu <audio> z <source>
-  const audioRegex = /<audio[^>]*>.*?<source[^>]+src="([^">]+)"/g;
-  let match;
-
-  console.log("Extracting audio links...");
-
-  // Wyciąganie linków audio z <audio>
-  while ((match = audioRegex.exec(html)) !== null) {
-    const fullUrl = match[1].startsWith("http")
-      ? match[1]
-      : `${baseUrl}${match[1]}`;
-    console.log("Full audio URL from <audio>: ", fullUrl); // Logowanie URL
-    audioLinks.push(fullUrl);
-  }
-
-  // Dodajemy obsługę linków w tagach <a> (jeśli są)
-  const linkRegex = /<a[^>]+href="([^">]+)"[^>]*>[^<]*\.mp3[^<]*<\/a>/g;
-
-  while ((match = linkRegex.exec(html)) !== null) {
-    const fullUrl = match[1].startsWith("http")
-      ? match[1]
-      : `${baseUrl}${match[1]}`;
-    console.log("Full audio URL from <a>: ", fullUrl); // Logowanie URL
-    audioLinks.push(fullUrl);
-  }
-
-  console.log("Extracted audio links:", audioLinks);
-  return audioLinks;
-}
-
+/**
+ * Converts HTML content to Markdown.
+ * @param html - HTML content.
+ * @param baseUrl - Base URL for relative paths.
+ * @returns Converted Markdown content.
+ */
 export async function convertHtmlToMarkdown(html: string, baseUrl: string) {
   // Konwertujemy HTML na Markdown
   const nhm = new NodeHtmlMarkdown();
   let markdown = nhm.translate(html);
 
   // Wyciągamy obrazki i audio
-  const imageLinks = await extractImageLinksAndCaptionsFromHTML(html, baseUrl);
-  const audioLinks = await extractAudioLinksFromHTML(html, baseUrl);
+  const imageLinks = extractLinksFromHTML(
+    html,
+    baseUrl,
+    /<img[^>]+src="([^">]+)"[^>]*>?/g,
+    "/dane/i/",
+  );
+  const audioLinks = [
+    ...extractLinksFromHTML(
+      html,
+      baseUrl,
+      /<audio[^>]*>.*?<source[^>]+src="([^">]+)"/g,
+      "/dane/i/",
+    ),
+    ...extractLinksFromHTML(
+      html,
+      baseUrl,
+      /<a[^>]+href="([^">]+\.mp3)"[^>]*>/g,
+      "/dane/i/",
+    ),
+  ];
 
-  console.log("audioLinks", audioLinks);
-
-  // Dodajemy obrazki do Markdowna
+  // Add images to Markdown
   if (imageLinks.length > 0) {
     markdown += "\n### Images:\n";
     for (const link of imageLinks) {
-      markdown += `![${link.caption}](${link.url})\n`;
+      markdown += `![${path.basename(link)}](${link})\n`;
     }
   }
 
-  // Dodajemy audio do Markdowna
+  // Add audio to Markdown
   if (audioLinks.length > 0) {
     markdown += "\n### Audio:\n";
     for (const link of audioLinks) {
@@ -120,18 +111,29 @@ export async function convertHtmlToMarkdown(html: string, baseUrl: string) {
   return markdown;
 }
 
+/**
+ * Saves Markdown content to a file.
+ * @param markdown - Markdown content.
+ * @param fileName - Name of the file.
+ */
 export async function saveMarkdownToFile(markdown: string, fileName: string) {
   const taskFolder = path.join(process.cwd(), "app", "tasks", "S02E05");
 
   const filePath = path.join(taskFolder, fileName);
 
-  // Sprawdzamy, czy folder istnieje, jeśli nie - tworzymy go
+  // Create directory if it doesn't exist
   await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
 
-  // Zapisujemy plik Markdown
+  // Save the file with Markdown content
   await fs.promises.writeFile(filePath, markdown, "utf8");
 }
 
+/**
+ * Downloads and saves an image file.
+ * @param imageUrl - URL of the image.
+ * @param outputDir - Directory to save the image.
+ * @returns Local path of the saved image.
+ */
 export async function downloadAndSaveImage(
   imageUrl: string,
   outputDir: string,
@@ -142,17 +144,17 @@ export async function downloadAndSaveImage(
       throw new Error(`Failed to download image: ${imageUrl}`);
     }
 
-    // Pobierz nazwę pliku z URL
+    // Get image name and path
     const imageName = path.basename(new URL(imageUrl).pathname);
     const imagePath = path.join(outputDir, imageName);
 
-    // Stwórz katalog, jeśli nie istnieje
+    // Create directory if it doesn't exist
     await fs.promises.mkdir(outputDir, { recursive: true });
 
-    // Pobierz zawartość obrazka
+    // Download image
     const imageBuffer = await response.arrayBuffer();
 
-    // Zapisz plik
+    // Save image to file
     await fs.promises.writeFile(imagePath, Buffer.from(imageBuffer));
 
     return imagePath;
@@ -162,34 +164,34 @@ export async function downloadAndSaveImage(
   }
 }
 
-// Funkcja do aktualizacji ścieżek obrazów w Markdown
-export function updateImagePathsInMarkdown(
+/**
+ * Updates file paths in Markdown.
+ * @param markdownContent - Markdown content.
+ * @param fileMap - Mapping of old URLs to new paths.
+ * @returns Updated Markdown content.
+ */
+export function updateFilePathsInMarkdown(
   markdownContent: string,
-  imageMap: Record<string, string>,
+  fileMap: Record<string, string>,
 ): string {
-  // 1. Aktualizacja sekcji `### Images:`
+  // Update image paths
   let updatedMarkdown = markdownContent.replace(
     /!\[.*?\]\((https:\/\/[^)]+)\)/g,
     (match, url) => {
-      if (imageMap[url]) {
-        return match.replace(url, imageMap[url]);
-      }
-      return match;
+      return fileMap[url] ? `![${path.basename(url)}](${fileMap[url]})` : match;
     },
   );
 
-  // 2. Aktualizacja ścieżek względnych `![](i/...)`
+  // Update audio paths
   updatedMarkdown = updatedMarkdown.replace(
     /!\[\]\(i\/([^)\s]+)\)/g,
     (match, relativePath) => {
-      const matchedUrl = Object.keys(imageMap).find((url) =>
+      const matchedUrl = Object.keys(fileMap).find((url) =>
         url.includes(relativePath),
       );
-
-      if (matchedUrl && imageMap[matchedUrl]) {
-        return `![](${imageMap[matchedUrl]})`;
-      }
-      return match;
+      return matchedUrl && fileMap[matchedUrl]
+        ? `![](${fileMap[matchedUrl]})`
+        : match;
     },
   );
 
@@ -197,10 +199,10 @@ export function updateImagePathsInMarkdown(
 }
 
 /**
- * Pobiera i zapisuje plik audio do podanego katalogu.
- * @param audioUrl - URL pliku audio
- * @param outputDir - Katalog docelowy dla pliku audio
- * @returns Ścieżka lokalna zapisanego pliku audio
+ * Downloads and saves an audio file.
+ * @param audioUrl - URL of the audio file.
+ * @param outputDir - Directory to save the audio.
+ * @returns Local path of the saved audio file.
  */
 export async function downloadAndSaveAudio(
   audioUrl: string,
@@ -212,17 +214,11 @@ export async function downloadAndSaveAudio(
       throw new Error(`Failed to download audio: ${audioUrl}`);
     }
 
-    // Pobierz nazwę pliku z URL
     const audioName = path.basename(new URL(audioUrl).pathname);
     const audioPath = path.join(outputDir, audioName);
 
-    // Stwórz katalog, jeśli nie istnieje
     await fs.promises.mkdir(outputDir, { recursive: true });
-
-    // Pobierz zawartość pliku audio
     const audioBuffer = await response.arrayBuffer();
-
-    // Zapisz plik audio
     await fs.promises.writeFile(audioPath, Buffer.from(audioBuffer));
 
     return audioPath;
@@ -233,35 +229,10 @@ export async function downloadAndSaveAudio(
 }
 
 /**
- * Generuje pełny URL pliku audio na podstawie reguł.
- * @param url - Oryginalny URL pliku audio (pełny lub względny)
- * @param baseUrl - Bazowy URL dla względnych ścieżek
- * @param audioPathPrefix - Opcjonalny prefiks dla ścieżki (np. /dane/i/)
- * @returns Pełny URL pliku audio
- */
-function generateAudioUrl(
-  url: string,
-  baseUrl: string,
-  audioPathPrefix = "/dane/i/",
-): string {
-  // Pobierz nazwę pliku z URL
-  const fileName = path.basename(url);
-
-  if (url.startsWith("http")) {
-    // Dla pełnych URL-i, zamień tylko segment ścieżki
-    const urlObject = new URL(url);
-    return `${urlObject.origin}${audioPathPrefix}${fileName}`;
-  }
-
-  // Dla względnych URL-i, zbuduj pełny URL na podstawie baseUrl
-  return new URL(`${audioPathPrefix}${fileName}`, baseUrl).toString();
-}
-
-/**
- * Wyodrębnia URL-e plików audio z treści Markdown i generuje poprawne ścieżki.
- * @param markdownContent - Treść pliku Markdown
- * @param baseUrl - Bazowy URL do przetwarzania względnych ścieżek
- * @returns Tablica poprawnych URL-i plików audio
+ * Extracts audio file links from Markdown content.
+ * @param markdownContent - Markdown content containing audio links.
+ * @param baseUrl - Base URL for relative paths.
+ * @returns Array of full URLs for audio files.
  */
 export function extractAudioLinksFromMarkdown(
   markdownContent: string,
@@ -269,35 +240,35 @@ export function extractAudioLinksFromMarkdown(
 ): string[] {
   const audioRegex = /\[Audio\]\((https:\/\/[^)]+\.mp3)\)/g;
   const audioLinks: string[] = [];
-  let match;
+  let match: RegExpExecArray | null = audioRegex.exec(markdownContent);
 
-  while ((match = audioRegex.exec(markdownContent)) !== null) {
-    const fullUrl = generateAudioUrl(match[1], baseUrl, "/dane/i/");
+  while (match !== null) {
+    const fullUrl = generateFileUrl(match[1], baseUrl, "/dane/i/");
     audioLinks.push(fullUrl);
+    match = audioRegex.exec(markdownContent);
   }
-
   return audioLinks;
 }
 
 /**
- * Sprawdza, czy plik istnieje w podanej ścieżce.
- * @param filePath Ścieżka do pliku.
- * @returns Boolean - `true`, jeśli plik istnieje, w przeciwnym razie `false`.
+ * Checks if a file exists.
+ * @param filePath - Path to the file.
+ * @returns Boolean indicating if the file exists.
  */
 async function fileExists(filePath: string): Promise<boolean> {
   try {
     await fs.promises.access(filePath, constants.F_OK);
-    return true; // Plik istnieje
+    return true;
   } catch {
-    return false; // Plik nie istnieje
+    return false;
   }
 }
 
 /**
- * Analizuje obraz i zwraca opis zawartości.
- * @param filePath Ścieżka do pliku obrazu.
- * @param instruction Instrukcja dla AI dotycząca analizy obrazu.
- * @returns Tekstowy opis zawartości obrazu.
+ * Analyzes image content using AI.
+ * @param filePath - Path to the image file.
+ * @param instruction - Instruction for the AI analysis.
+ * @returns Text description of the image content.
  */
 export async function analyzeImageContent(
   filePath: string,
@@ -310,18 +281,18 @@ export async function analyzeImageContent(
     `${file}.txt`,
   );
 
-  // Sprawdź, czy plik z analizą już istnieje
+  // Check if analysis already exists
   const analysisExists = await fileExists(analysisPath);
 
   if (analysisExists) {
     return await fs.promises.readFile(analysisPath, "utf-8");
   }
 
-  // Wczytaj obraz i skonwertuj na base64
+  // Read image file and convert to base64
   const fileBuffer = await fs.promises.readFile(filePath);
   const base64Image = fileBuffer.toString("base64");
 
-  // Wiadomość dla AI
+  // Prepare user message
   const userMessage = [
     {
       type: "text",
@@ -335,7 +306,7 @@ export async function analyzeImageContent(
     },
   ];
 
-  // Wysłanie do OpenAI
+  // Connect with OpenAI API
   const response = await connectWithOpenAi(userMessage);
 
   if (!response.ok) {
@@ -353,10 +324,10 @@ export async function analyzeImageContent(
 }
 
 /**
- * Wstrzykuje opisy obrazów do odpowiednich sekcji w Markdown.
- * @param markdownContent - Zawartość Markdown.
- * @param imageDescriptions - Tablica opisów obrazów.
- * @returns Zaktualizowany Markdown z opisami obrazów.
+ * Injects image descriptions into Markdown.
+ * @param markdownContent - Markdown content.
+ * @param imageDescriptions - Array of image descriptions.
+ * @returns Updated Markdown content with descriptions.
  */
 export function injectImageDescriptionsIntoMarkdown(
   markdownContent: string,

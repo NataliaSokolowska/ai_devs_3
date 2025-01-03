@@ -37,14 +37,14 @@ Wszystko to, rzecz jasna, pozostaje na razie w sferze hipotez. Dotychczasowe eks
 W jednym z naszych najbardziej spektakularnych testów udało się przesłać obraz fotograficzny do przeszłości z zachowaniem wyjątkowej dokładności i stabilności danych. W eksperymencie, który odbył się na rynku, zespół badaczy wykonał zdjęcie zachodzącego słońca o godzinie 19:42\. W celu zmniejszenia rozmiaru przesyłanych danych, zdjęcie zostało wykonane w formacie monochromatycznym. 
 
 ![](./images/rynek.png)
-**Description:** Nie wiem. 
+**Description:** Widok. 
 
 Orygionalne zdjęcie. Widok na kościół od strony 'Adasia'
 
 Wykorzystując zaawansowaną technologię transmisji temporalnej, dane zostały przetworzone i zapisane na karcie pamięci z odczytem czasowym wskazującym godzinę 16:08 tego samego dnia – ponad trzy godziny przed faktycznym wykonaniem fotografii. Pomimo precyzyjnej kalibracji i wzmocnienia sygnału, obraz uległ niewielkiemu uszkodzeniu, ujawniając drobne zakłócenia i artefakty widoczne w prawej części zdjęcia.
 
 ![](./images/rynek_glitch.png)
-**Description:** Nie mogę zidentyfikować obiektu ani jedzenia w tym obrazie. 
+**Description:** Nie wiem. 
 
 Uszkodzenia widoczne w odtworzonym pliku graficznym
 
@@ -55,12 +55,12 @@ Wynik ten jednak nadal wskazuje na rosnący potencjał przesyłania kompleksowyc
 Jednym z bardziej ambitnych eksperymentów była próba transmisji materii – w tym przypadku owocu. Choć przesył wydawał się sukcesem, przy dokładniejszym zbadaniu okazało się, że owoc dotarł na miejsce bez pestek, które zniknęły podczas procesu przesyłu. Co ciekawe, pestek nigdy nie odnaleziono, co sugeruje, że transmisja wciąż wymaga udoskonalenia, by zapewnić pełną integralność przesyłanych obiektów. 
 
 ![](./images/fruit01.png)
-**Description:** truskawka 
+**Description:** Truskawka 
 
 Owoc przed transportem w czasie
 
 ![](./images/fruit02.png)
-**Description:** Truskawka 
+**Description:** Truskawka. 
 
 Owoc pozbawiony pestek po transporcie
 
@@ -247,12 +247,12 @@ Treści zawarte w dokumencie dotyczą zarówno szczegółowych rozwiązań techn
 
 (11) Liang, Xun, Shichao Song, Zifan Zheng, Hanyu Wang, Qingchen Yu, Xunkai Li, Rong-Hua Li, et al. "Internal Consistency and Self-Feedback in Large Language Models: A Survey." arXiv preprint arXiv:2407.14507v3 (2024).
 ### Images:
-![Orygionalne zdjęcie. Widok na kościół od strony 'Adasia'](./images/rynek.png)
-![Uszkodzenia widoczne w odtworzonym pliku graficznym](./images/rynek_glitch.png)
-![Owoc przed transportem w czasie](./images/fruit01.png)
-![Owoc pozbawiony pestek po transporcie](./images/fruit02.png)
-![Fuzja kodu genetycznego dwóch transportowanych owoców](./images/strangefruit.png)
-![Resztki jedzenia znalezione w pobliżu komory temporalnej.<br />Ciasto było jeszcze ciepłe i chrupiące.](./images/resztki.png)
+![rynek.png](./images/rynek.png)
+![rynek_glitch.png](./images/rynek_glitch.png)
+![fruit01.png](./images/fruit01.png)
+![fruit02.png](./images/fruit02.png)
+![strangefruit.png](./images/strangefruit.png)
+![resztki.png](./images/resztki.png)
 
 ### Audio:
-[Audio](https://centrala.ag3nts.org/danei/rafal_dyktafon.mp3)
+[Audio](https://centrala.ag3nts.org/dane/i/rafal_dyktafon.mp3)
