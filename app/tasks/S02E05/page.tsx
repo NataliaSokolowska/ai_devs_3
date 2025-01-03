@@ -17,8 +17,9 @@ const TaskS02E05Page = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          url: process.env.NEXT_PUBLIC_QUESTION_URL_S02_E05,
-          baseFolder: "/tmp/S02E05",
+          questionUrl: process.env.NEXT_PUBLIC_QUESTION_URL_S02_E05,
+          informationUrl: process.env.NEXT_PUBLIC_INFORMATION_URL_S02_E05,
+          outputDirectory: "/files",
         }),
       });
 
