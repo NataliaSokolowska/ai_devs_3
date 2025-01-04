@@ -19,6 +19,8 @@ export default function UnzipDataPage() {
         body: JSON.stringify({
           url: process.env.NEXT_PUBLIC_AUDIO_URL_S02_E04,
           baseFolder: "/tmp/fabryka",
+          question:
+            "Które aktywne datacenter (DC_ID) są zarządzane przez pracowników, którzy są na urlopie (is_active=0)?",
         }),
       });
 

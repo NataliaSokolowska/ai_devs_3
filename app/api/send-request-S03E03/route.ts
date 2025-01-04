@@ -21,21 +21,40 @@ async function queryDatabase(apiUrl: string, query: string): Promise<any> {
 
 export async function POST(req: Request) {
   try {
-    const { dataAPI } = await req.json();
+    const { dataAPI, question } = await req.json();
 
-    const schema = [];
-    let resp = await queryDatabase(dataAPI, "SHOW CREATE TABLE datacenters");
-    schema.push(resp.reply[0]?.["Create Table"] || "No schema for datacenters");
-    resp = await queryDatabase(dataAPI, "SHOW CREATE TABLE users");
-    schema.push(resp.reply[0]?.["Create Table"] || "No schema for users");
-    const schemaString = schema.join("\n");
+    // Check which tables are available in the database
+    const tablesResponse = await queryDatabase(dataAPI, "SHOW TABLES");
+    const tables = tablesResponse.reply.map(
+      (table: any) => table?.Tables_in_banan || table?.table_name,
+    );
 
-    const systemMessage = `You are an expert at generating SQL queries. Your task is to generate a query that will return the data asked by the user.\nHere is the DB schema: ${schemaString}. Return the the query without any formatting and nothing else.`;
+    // Check if the database contains any tables
+    const tableSchemas: string[] = [];
+    for (const table of tables) {
+      const schemaResponse = await queryDatabase(
+        dataAPI,
+        `SHOW CREATE TABLE ${table}`,
+      );
+      const schema = schemaResponse.reply?.[0]?.["Create Table"] || "";
+      if (schema) {
+        tableSchemas.push(schema);
+      }
+    }
 
-    const userMessage =
-      "Które aktywne datacenter (DC_ID) są zarządzane przez pracowników, którzy są na urlopie (is_active=0)?";
+    const schemaString = tableSchemas.join("\n");
 
-    const response = await connectWithOpenAi(userMessage, systemMessage, 0.5);
+    const systemMessage = `You are an expert MySQL assistant.
+    You have access to the following database schemas:
+    ${schemaString}
+
+    Your task:
+    1. Analyze the table structures provided.
+    2. Write a valid SQL SELECT query to find the IDs (dc_id) of active datacenters (is_active=1) managed by inactive users (is_active=0).
+    3. Ensure that the query matches the column names exactly as they appear in the schema.
+    4. Return only the SQL query without any explanation or formatting.`;
+
+    const response = await connectWithOpenAi(question, systemMessage, 0.5);
 
     const sqlQuery = response.data.choices[0]?.message?.content?.trim() || "";
 
@@ -43,16 +62,24 @@ export async function POST(req: Request) {
       throw new Error("OpenAI did not return a valid SELECT SQL query.");
     }
 
+    // Execute the SQL query from OpenAI
     const queryResult = await queryDatabase(dataAPI, sqlQuery);
 
-    if (!Array.isArray(queryResult.reply)) {
-      throw new Error("Unexpected database response format.");
+    if (!queryResult || !Array.isArray(queryResult.reply)) {
+      throw new Error(
+        `Unexpected database response format: ${JSON.stringify(queryResult)}`,
+      );
     }
 
+    // Extract the datacenter IDs from the query result
     const matchingDatacenterIds = queryResult.reply
-      .map((row: any) => row?.dc_id || row?.DC_ID)
+      .map((row: any) => row?.dc_id || row?.DC_ID || row?.dcId)
       .filter(Boolean)
       .map(Number);
+
+    if (matchingDatacenterIds.length === 0) {
+      throw new Error("No matching datacenter IDs found.");
+    }
 
     const reportData = {
       task: "database",
