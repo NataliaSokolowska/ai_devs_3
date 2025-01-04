@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 
-export default function UnzipDataPage() {
+const TaskS03E03Page = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flag, setFlag] = useState<string | null>(null);
@@ -13,14 +13,11 @@ export default function UnzipDataPage() {
     setFlag(null);
 
     try {
-      const response = await fetch("/api/send-request-S02E04", {
+      const response = await fetch("/api/send-request-S03E03", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          url: process.env.NEXT_PUBLIC_AUDIO_URL_S02_E04,
-          baseFolder: "/tmp/fabryka",
-          question:
-            "Które aktywne datacenter (DC_ID) są zarządzane przez pracowników, którzy są na urlopie (is_active=0)?",
+          dataAPI: process.env.NEXT_PUBLIC_DATA_API_S03_E03,
         }),
       });
 
@@ -46,12 +43,13 @@ export default function UnzipDataPage() {
 
   return (
     <div className="flex flex-col items-center p-4 bg-gray-100 min-h-screen">
+      <h1 className="text-2xl font-bold mb-4">Task S03E03 - Report</h1>
       <button
         type="button"
         onClick={handleFetchData}
         className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition duration-300"
       >
-        {loading ? "Processing..." : "Process ZIP Data"}
+        {loading ? "Processing..." : "Checking database"}
       </button>
 
       {error && (
@@ -68,4 +66,6 @@ export default function UnzipDataPage() {
       )}
     </div>
   );
-}
+};
+
+export default TaskS03E03Page;
