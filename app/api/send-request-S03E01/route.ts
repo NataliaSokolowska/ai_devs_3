@@ -5,6 +5,15 @@ import fs from "fs/promises";
 import { getAllFiles, segregateFiles } from "@/app/lib/utils/utils";
 import { connectWithOpenAi } from "@/app/lib/openAiService";
 
+interface FactMetadata {
+  people: string[];
+  roles: string[];
+  technologies: string[];
+  locations: string[];
+  animals: string[];
+  keywords: string[];
+}
+
 export async function POST(req: Request) {
   try {
     const { dataUrl } = await req.json();
@@ -40,8 +49,7 @@ export async function POST(req: Request) {
       throw new Error("No text files found for processing.");
     }
 
-    // Keywords from facts
-    const factsKeywords: Record<string, string> = {};
+    const factsMetadata: Record<string, FactMetadata> = {};
 
     for (const factFile of factsTxtFiles) {
       const factFileName = path.basename(factFile);
@@ -49,14 +57,14 @@ export async function POST(req: Request) {
 
       const factPrompt = `
         You are an AI assistant analyzing factual documents related to security incidents.
-        Generate meaningful keywords for the following document.
+        Extract the following details:
 
-        ### Instructions:
-        - Generate 10-15 meaningful keywords.
-        - Keywords must be in nominative case (e.g., nauczyciel, not ‘nauczycielem’).
-        - Keywords must be in Polish only.
-        - Include names of people, locations, significant terms, and events.
-        - Avoid duplicates or overly generic terms.
+        1. **People**: Names of individuals mentioned.
+        2. **Roles**: Their professions or roles.
+        3. **Technologies**: Technologies mentioned.
+        4. **Locations**: Places mentioned.
+        5. **Animals**: Any animal references.
+        6. **Keywords**: 10-15 meaningful keywords summarizing the document.
 
         ### Document Name:
         ${factFileName}
@@ -64,20 +72,70 @@ export async function POST(req: Request) {
         ### Document Content:
         ${factContent}
 
-        ### Expected Response Format:
-        keyword1, keyword2, keyword3, keyword4, keyword5, keyword6, keyword7, keyword8, keyword9, keyword10, keyword11, keyword12, keyword13, keyword14, keyword15
-      `;
+        ### Expected Response Format (JSON):
+        {
+          "people": ["name1", "name2"],
+          "roles": ["role1", "role2"],
+          "technologies": ["tech1", "tech2"],
+          "locations": ["location1", "location2"],
+          "animals": ["animal1", "animal2"],
+          "keywords": ["keyword1", "keyword2", "keyword3"]
+        }
+    `;
 
       const factResponse = await connectWithOpenAi(factPrompt, undefined, 0.5);
 
       if (factResponse.ok) {
-        const keywords =
-          factResponse.data.choices[0]?.message?.content?.trim() || "";
-        factsKeywords[factFileName] = keywords;
-        console.log(`✅ Keywords for fact ${factFileName}: ${keywords}`);
+        try {
+          let content =
+            factResponse.data.choices[0]?.message?.content?.trim() || "";
+
+          // Remove the JSON prefix and suffix
+          content = content
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
+
+          // Check if the response is a valid JSON structure
+          if (content.startsWith("{") && content.endsWith("}")) {
+            const metadata = JSON.parse(content);
+            factsMetadata[factFileName] = {
+              people: metadata.people || [],
+              roles: metadata.roles || [],
+              technologies: metadata.technologies || [],
+              locations: metadata.locations || [],
+              animals: metadata.animals || [],
+              keywords: metadata.keywords || [],
+            };
+            console.log(`✅ Metadata for ${factFileName}:`, metadata);
+          } else {
+            throw new Error(
+              "Response is not a valid JSON structure after cleanup.",
+            );
+          }
+        } catch (error) {
+          console.error(
+            `❌ Failed to parse metadata for ${factFileName}: ${error}`,
+          );
+          factsMetadata[factFileName] = {
+            people: [],
+            roles: [],
+            technologies: [],
+            locations: [],
+            animals: [],
+            keywords: [],
+          };
+        }
       } else {
-        console.error(`❌ Failed to generate keywords for ${factFileName}`);
-        factsKeywords[factFileName] = "Failed to generate keywords";
+        console.error(`❌ Failed to process fact ${factFileName}`);
+        factsMetadata[factFileName] = {
+          people: [],
+          roles: [],
+          technologies: [],
+          locations: [],
+          animals: [],
+          keywords: [],
+        };
       }
     }
 
@@ -88,55 +146,82 @@ export async function POST(req: Request) {
       const fileName = path.basename(filePath);
       const fileContent = await fs.readFile(filePath, "utf-8");
 
-      // Find related facts - it's not generic, but it's a good start
-      const relatedFacts = Object.entries(factsKeywords)
-        .filter(([factName, factKeywords]) => {
-          const keywordsArray = factKeywords
-            .split(", ")
-            .map((k) => k.toLowerCase());
+      // Check related facts for metadata
+      const relatedFacts = Object.entries(factsMetadata)
+        .filter(([_, factData]) => {
           return (
-            keywordsArray.some((keyword) =>
-              fileContent.toLowerCase().includes(keyword),
-            ) ||
-            keywordsArray.some((keyword) =>
-              fileName.toLowerCase().includes(keyword),
-            ) ||
-            keywordsArray.includes("javascript") ||
-            keywordsArray.includes("python") ||
-            keywordsArray.includes("programista") ||
-            keywordsArray.includes("nauczyciel")
+            factData.people.some((person) => fileContent.includes(person)) ||
+            factData.roles.some((role) => fileContent.includes(role)) ||
+            factData.technologies.some((tech) => fileContent.includes(tech)) ||
+            factData.animals.some((animal) => fileContent.includes(animal)) ||
+            factData.locations.some((location) =>
+              fileContent.includes(location),
+            )
           );
         })
-        .map(([_, factKeywords]) => factKeywords);
+        .map(([factName, factData]) => ({
+          name: factName,
+          people: factData.people,
+          roles: factData.roles,
+          technologies: factData.technologies,
+          locations: factData.locations,
+          animals: factData.animals,
+          keywords: factData.keywords,
+        }));
+
+      // Connect unique metadata from related facts
+      const uniquePeople = Array.from(
+        new Set(relatedFacts.flatMap((fact) => fact.people)),
+      );
+      const uniqueRoles = Array.from(
+        new Set(relatedFacts.flatMap((fact) => fact.roles)),
+      );
+      const uniqueTechnologies = Array.from(
+        new Set(relatedFacts.flatMap((fact) => fact.technologies)),
+      );
+      const uniqueLocations = Array.from(
+        new Set(relatedFacts.flatMap((fact) => fact.locations)),
+      );
+      const uniqueAnimals = Array.from(
+        new Set(relatedFacts.flatMap((fact) => fact.animals)),
+      );
+      const uniqueKeywords = Array.from(
+        new Set(relatedFacts.flatMap((fact) => fact.keywords)),
+      );
 
       const generateMetadataPrompt = `
         You are an AI assistant analyzing security incident reports. Your task is to generate meaningful keywords for the given report.
 
         ### Instructions:
-        1. Carefully analyze the **content of the report**.
-        2. Cross-reference individuals, professions, technologies, sectors, dates, and events with information from the **factual documents**.
-        3. If a person appears both in the **report** and **factual documents**, include:
-           - Their **full name**
-           - **Profession or role** (e.g., programista JavaScript, nauczyciel, inżynier)
-           - **Technological skills** (e.g., JavaScript, Python, AI Devs)
-        4. Always prioritize:
-           - **Sectors (e.g., sektor C4)**
-           - **Professions and roles (e.g., nauczyciel, programista JavaScript)**
-           - **Technological skills (e.g., JavaScript, Python)**
-           - **Significant events and locations**
-          - **Animals or fauna references**
-           - **Dates (e.g., 2024-11-12)**
-        5. If an individual, animal, is mentioned indirectly in the report but their details (e.g., profession, technologies) exist in the factual documents, **explicitly include them in the keywords**.
-        6. Ensure that keywords reflect **individuals, animals, and their roles/skills**, even if not explicitly stated in the report but inferred from related facts.
-        7. Avoid duplicates or overly generic terms.
-        8. Detect and include keywords derived from the **report file name**.
+        1. Analyze the **content of the report** and the metadata from related facts.
+        2. Explicitly associate **individuals (people)** with their **roles (professions)** and **technologies** if mentioned in either the report or related facts.
+        3. Ensure that keywords include:
+          - **Person → Role → Technology** mappings (e.g., Barbara Zawadzka → Programista JavaScript → Python)
+          - **Sectors (e.g., sektor C4)**
+          - **Professions (e.g., nauczyciel, programista JavaScript)**
+          - **Technological skills (e.g., JavaScript, Python)**
+          - **Locations (e.g., Kraków, ul. Bracka)**
+          - **Events and anomalies (e.g., incydent, eksplozje)**
+
+        4. Ensure that relationships (e.g., Barbara Zawadzka is a JavaScript programmer) are **explicitly stated** in the keywords.
+
+        5. Keywords must:
+          - Be in **Polish**.
+          - Be in **nominative case**.
+          - Prioritize associations between **people → roles → technologies**.
+          - Avoid duplicates or overly generic terms.
+
+          ### Details:
+        - **People:** ${uniquePeople.join(", ")}
+        - **Roles:** ${uniqueRoles.join(", ")}
+        - **Technologies:** ${uniqueTechnologies.join(", ")}
+        - **Locations:** ${uniqueLocations.join(", ")}
+        - **Animals:** ${uniqueAnimals.join(", ")}
+        - **Keywords:** ${uniqueKeywords.join(", ")}
 
         ### Example:
-        If the report mentions **Barbara Zawadzka** and the related factual document describes her as a **programista JavaScript**, then the keywords should include:
-        **sektor C4, Barbara Zawadzka, programista JavaScript, Python, Kraków, ruch oporu, patrol, incydent, bezpieczeństwo, raport, technologie, 2024-11-12**
-
-        If the report mentions **zwierzyna leśna** and the related factual document describes activities in **sektor A1**, then the keywords should include:
-        **sektor A1, zwierzyna leśna, las, patrol, incydent, bezpieczeństwo, raport, 2024-11-12**
+        If the report mentions **Barbara Zawadzka** and the related factual document describes her as a **Frontend Developer** using **JavaScript** and **Python**, the keywords should include:
+        **sektor C4, Barbara Zawadzka, programista JavaScript, Python, Kraków, ruch oporu, patrol, incydent, bezpieczeństwo, raport, technologie, automatyzacja, 2024-11-12**
 
         ### Report Details:
         - **File Name:** ${fileName}
@@ -144,11 +229,20 @@ export async function POST(req: Request) {
         ${fileContent}
 
         ### Related Facts:
-        ${relatedFacts.map((fact, index) => `Fakt ${index + 1}: ${fact}`).join("\n")}
+        ${relatedFacts
+          .map(
+            (fact, index) =>
+              `Fakt ${index + 1}: Osoby: ${fact.people.join(", ")}, Role: ${fact.roles.join(
+                ", ",
+              )}, Technologie: ${fact.technologies.join(", ")}, Lokalizacje: ${fact.locations.join(
+                ", ",
+              )}, Słowa kluczowe: ${fact.keywords.join(", ")}`,
+          )
+          .join("\n")}
 
         ### Expected Response Format:
-        sektor C4, Barbara Zawadzka, programista JavaScript, Python, Kraków, ruch oporu, patrol, incydent, bezpieczeństwo, raport, technologie, 2024-11-12
-        `;
+        sektor C4, Barbara Zawadzka, programista JavaScript, Python, Kraków, ul. Bracka, ruch oporu, patrol, incydent, bezpieczeństwo, raport, technologie, automatyzacja, 2024-11-12
+      `;
 
       const response = await connectWithOpenAi(
         generateMetadataPrompt,
