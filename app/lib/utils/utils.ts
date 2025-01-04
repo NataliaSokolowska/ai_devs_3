@@ -163,14 +163,18 @@ export async function removeUnwantedEntries(
   unwantedDirectories: string[],
   unwantedFiles: string[],
 ): Promise<boolean> {
-  const fileName = path.basename(filePath).toLowerCase();
+  const fileName = path.basename(filePath);
+  const fileExt = path.extname(filePath).toLowerCase();
 
   if (fileStat.isDirectory() && unwantedDirectories.includes(fileName)) {
     await fs.rm(filePath, { recursive: true, force: true });
     return true;
   }
 
-  if (fileStat.isFile() && unwantedFiles.includes(fileName)) {
+  if (
+    fileStat.isFile() &&
+    (unwantedFiles.includes(fileName) || unwantedFiles.includes(fileExt))
+  ) {
     await fs.unlink(filePath);
     return true;
   }
@@ -205,6 +209,12 @@ async function moveFileToFolder(
   }
 }
 
+/**
+ * Segregates files in a base folder by their extensions and handles unwanted files/folders.
+ * @param baseFolder - Path to the base folder containing files.
+ * @param unwantedDirectories - List of unwanted directories to ignore.
+ * @param unwantedFiles - List of unwanted files to ignore.
+ */
 export async function segregateFiles(
   baseFolder: string,
   unwantedDirectories: string[] = ["facts", "weapons_tests"],
